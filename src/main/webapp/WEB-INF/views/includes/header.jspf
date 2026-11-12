@@ -1,0 +1,49 @@
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MercadoNexo SpA — <c:out value="${tituloPagina}"/></title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/estilos.css">
+</head>
+<body>
+<%-- Sección actual, definida por cada vista antes de incluir este encabezado --%>
+<c:set var="seccion" value="${empty seccionActual ? '' : seccionActual}"/>
+
+<header class="topbar">
+    <div class="topbar-interna">
+        <a class="marca" href="${pageContext.request.contextPath}/inicio">
+            <span class="marca-icono" aria-hidden="true">M</span>
+            MercadoNexo <span class="marca-sigla">SpA</span>
+        </a>
+        <nav aria-label="Navegación principal">
+            <a href="${pageContext.request.contextPath}/inicio"
+               class="${seccion eq 'inicio' ? 'activo' : ''}">Inicio</a>
+            <a href="${pageContext.request.contextPath}/productos"
+               class="${seccion eq 'productos' ? 'activo' : ''}">Productos</a>
+            <a href="${pageContext.request.contextPath}/categorias"
+               class="${seccion eq 'categorias' ? 'activo' : ''}">Categorías</a>
+        </nav>
+    </div>
+</header>
+
+<main class="contenedor">
+    <%-- Mensajes flash (éxito / error), con botón para cerrar --%>
+    <c:if test="${not empty sessionScope.mensajeExito}">
+        <div class="mensaje exito" role="status">
+            <span class="mensaje-cuerpo"><c:out value="${sessionScope.mensajeExito}"/></span>
+            <c:remove var="mensajeExito" scope="session"/>
+            <button type="button" class="cerrar" aria-label="Cerrar mensaje"
+                    onclick="this.parentElement.remove()">×</button>
+        </div>
+    </c:if>
+    <c:if test="${not empty sessionScope.mensajeError}">
+        <div class="mensaje error" role="alert">
+            <span class="mensaje-cuerpo"><c:out value="${sessionScope.mensajeError}"/></span>
+            <c:remove var="mensajeError" scope="session"/>
+            <button type="button" class="cerrar" aria-label="Cerrar mensaje"
+                    onclick="this.parentElement.remove()">×</button>
+        </div>
+    </c:if>

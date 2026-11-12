@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="3.0"
+             xmlns="https://jakarta.ee/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence
+                                 https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd">
+
+    <!-- Unidad de persistencia: RESOURCE_LOCAL controlada por la capa DAO (EntityManager + EntityTransaction).
+         Proveedor: EclipseLink 4 (incluido en GlassFish 7). Driver JDBC: PostgreSQL.
+         Valores sincronizados con docker-compose.yml / .env -->
+    <persistence-unit name="mercadonexoPU" transaction-type="RESOURCE_LOCAL">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <class>cl.mercadonexo.model.Categoria</class>
+        <class>cl.mercadonexo.model.Producto</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+        <properties>
+            <!-- Conexión JDBC a PostgreSQL (Tarea 3: URL, usuario, contraseña y propiedades) -->
+            <property name="jakarta.persistence.jdbc.driver" value="org.postgresql.Driver"/>
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:postgresql://localhost:5432/mercadonexo"/>
+            <property name="jakarta.persistence.jdbc.user" value="mercadonexo"/>
+            <property name="jakarta.persistence.jdbc.password" value="mercadonexo"/>
+
+            <!-- Generación del esquema: crea las tablas si no existen (Tarea 2: BD preparada para Java) -->
+            <property name="eclipselink.ddl-generation" value="create-or-extend-tables"/>
+            <property name="eclipselink.ddl-generation.output-mode" value="database"/>
+            <property name="eclipselink.logging.level" value="INFO"/>
+        </properties>
+    </persistence-unit>
+</persistence>

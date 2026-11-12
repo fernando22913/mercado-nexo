@@ -1,0 +1,13 @@
+# Infraestructura local — no versionar
+.env
+glassfish7/
+target/
+node_modules/
+*.log
+.idea/
+.vscode/
+nbproject/private/
+
+# Metadatos de herramientas locales (OpenCode) — no parte del proyecto
+.agents/
+skills-lock.json
