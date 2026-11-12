@@ -8,6 +8,9 @@ node_modules/
 .vscode/
 nbproject/private/
 
+# Documento de planificación personal — no parte del proyecto
+ROADMAP.md
+
 # Metadatos de herramientas locales (OpenCode) — no parte del proyecto
 .agents/
 skills-lock.json
