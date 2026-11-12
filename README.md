@@ -74,99 +74,163 @@ categoria                        producto
 
 ## 4. Puesta en marcha paso a paso
 
-### 4.0 Requisitos previos
-
-| Requisito | Versión mínima / verificación |
-|---|---|
-| JDK | **Java 21** (`java -version`) |
-| Maven | 3.9+ (`mvn -version`) |
-| Docker + Docker Compose | cualquier versión reciente con `docker compose` (`docker compose version`) |
-| GlassFish 7 | probado con **7.0.25** (descargable de glassfish.org; no se versiona en este repo) |
-
 > **Acerca de este repositorio:** GitHub aloja **únicamente el código fuente y la
-> configuración** del proyecto. La base de datos **no** vive en GitHub ni en la nube:
-> corre localmente en Docker (contenedor `mercadonexo-db`), por lo que cualquiera que
-> clone este repo puede reproducirla con los pasos de esta sección.
+> configuración** del proyecto. Ni la base de datos ni el servidor de aplicaciones
+> viven en GitHub ni en la nube: PostgreSQL corre localmente en Docker (contenedor
+> `mercadonexo-db`) y **GlassFish se instala localmente** (carpeta `glassfish7/`,
+> ignorada por git y no incluida en el repositorio). Cualquiera que clone este repo
+> puede reproducir el entorno completo con los pasos de esta sección.
 
-### 4.1 PostgreSQL con Docker
+### 4.0 Requisitos previos y verificación
+
+| Requisito | Versión | Verificación |
+|---|---|---|
+| JDK | **Java 21** | `java -version` |
+| Maven | **3.9 o superior** | `mvn -version` |
+| Docker + Compose | versión reciente con subcomando `docker compose` | `docker --version` · `docker compose version` |
+| GlassFish | **7.0.25** (se descarga e instala en el paso 4.5) | se verifica al usar `asadmin` en el paso 4.6 |
+
+En una terminal abierta en la carpeta del proyecto, ejecuta (los mismos comandos en
+Windows y Linux):
 
 ```bash
+java -version            # debe reportar la versión 21
+mvn -version             # debe reportar Maven 3.9+ y Java 21
+docker --version
+docker compose version   # debe reportar una versión de Docker Compose v2
+```
+
+Si falta alguno: instala **OpenJDK 21** (por ejemplo, Eclipse Temurin), **Maven 3.9+**
+y **Docker Desktop** (Windows) o Docker Engine + plugin compose (Linux).
+
+> **Nota por sistema operativo:**
+> - **Windows:** abre **PowerShell** y navega a la carpeta del proyecto, por ejemplo
+>   `cd "C:\Users\TU_USUARIO\Documents\mercado-nexo"`.
+> - **Linux:** abre Bash y navega con `cd /ruta/a/mercado-nexo`.
+
+### 4.1 Obtener el proyecto
+
+```bash
+git clone https://github.com/fernando22913/mercado-nexo.git
 cd mercado-nexo
-
-# Configuración (ya incluye .env con puerto 5432; si otra BD local usa 5432, ajustar .env y persistence.xml)
-cp .env.example .env        # opcional: ajustar valores
-
-docker compose up -d        # iniciar PostgreSQL
-docker compose ps           # verificar estado (healthy)
-docker compose down         # detener (los datos SE CONSERVAN en el volumen nombrado)
-docker compose down -v      # detener Y borrar los datos (reset total) — ¡usar con cuidado!
 ```
 
-**Detener y reiniciar sin perder datos:** los datos viven en el volumen Docker nombrado
-`mercadonexo_pgdata`, que `down` y `stop` nunca borran:
+Alternativa sin Git: en GitHub, botón **Code → Download ZIP**, descomprimir el
+archivo y abrir la terminal en la carpeta descomprimida. Todos los comandos
+siguientes asumen que la terminal está en la **raíz del proyecto** (la carpeta que
+contiene `pom.xml` y `docker-compose.yml`).
+
+### 4.2 Configurar `.env` (base de datos)
 
 ```bash
-docker compose stop db      # detener el contenedor (volumen intacto)
-docker compose start db     # retomar con todos los datos
-# o bien: docker compose down && docker compose up -d   (mismo volumen, datos intactos)
-# eliminar el volumen SOLO si se quiere resetear: docker compose down -v
+# Linux (Bash)
+cp .env.example .env
 ```
 
-Acceder con psql:
+```powershell
+# Windows (PowerShell)
+Copy-Item .env.example .env
+```
+
+`.env.example` define los valores con los que Docker creará PostgreSQL:
+
+```properties
+POSTGRES_DB=mercadonexo
+POSTGRES_USER=mercadonexo
+POSTGRES_PASSWORD=mercadonexo
+POSTGRES_PORT=5432
+```
+
+Con los valores por defecto **no hay que editar nada**: ya coinciden con la conexión
+configurada en `src/main/resources/META-INF/persistence.xml`.
+
+> **Importante — `.env` y `persistence.xml` deben coincidir:**
+> - `.env` configura **solamente el contenedor Docker de PostgreSQL**: nombre de la
+>   base de datos, usuario, contraseña y puerto publicado (los lee `docker-compose.yml`).
+> - `persistence.xml` configura **solamente la conexión JDBC de la aplicación Java**:
+>   URL `jdbc:postgresql://localhost:5432/mercadonexo`, usuario `mercadonexo` y
+>   contraseña `mercadonexo`.
+> - Si cambias un valor en uno, cámbialo también en el otro. Ejemplo: si en `.env`
+>   pones `POSTGRES_PORT=5433`, la URL en `persistence.xml` debe pasar a
+>   `jdbc:postgresql://localhost:5433/mercadonexo`.
+> - El usuario y la contraseña de PostgreSQL solo se fijan al **crear el contenedor
+>   la primera vez**; cambiarlos más adelante requiere recrear el contenedor
+>   (`docker compose down -v`, lo que borra los datos).
+
+### 4.3 Iniciar PostgreSQL y verificar su estado
 
 ```bash
-docker compose exec db psql -U mercadonexo -d mercadonexo
-# consultas útiles:
-#   \dt                                  -- listar tablas
-#   SELECT * FROM producto;
-#   SELECT * FROM categoria;
+docker compose up -d     # crea e inicia el contenedor mercadonexo-db
+docker compose ps        # STATUS debe mostrar Up ... (healthy)
 ```
 
-Conexión desde Java (ya configurada en `persistence.xml`):
-
-```
-URL:      jdbc:postgresql://localhost:5432/mercadonexo
-Usuario:  mercadonexo
-Clave:    mercadonexo
-```
-
-### 4.2 GlassFish
-
-El servidor se descarga localmente (carpeta `glassfish7/`, ignorada por git):
+El `docker-compose.yml` define un healthcheck (`pg_isready`), así que al cabo de unos
+segundos `docker compose ps` debe mostrar el estado **healthy**. Verificación
+adicional de conexión real (idéntica en Windows y Linux):
 
 ```bash
-# Descargar GlassFish 7.0.25 (solo una vez)
+docker compose exec db psql -U mercadonexo -d mercadonexo -c "\dt"
+# Debe terminar sin error. Si aún no se desplegó la aplicación puede decir
+# "Did not find any relations": es normal, las tablas se crean al desplegar (§3).
+```
+
+> Si otro servicio local ya usa el puerto 5432, ver la nota correspondiente en §8.
+
+### 4.4 Compilar el WAR y ejecutar las pruebas
+
+```bash
+mvn package              # compila + empaqueta target/mercado-nexo.war
+mvn test                 # 14 pruebas JUnit 5 contra la BD real (requiere PostgreSQL iniciado, §4.3)
+```
+
+Ambos comandos son iguales en Windows y Linux. `mvn test` conecta directamente a la
+base de datos, por eso PostgreSQL debe estar iniciado antes de ejecutarlo. Para
+compilar sin ejecutar pruebas: `mvn package -DskipTests`.
+
+### 4.5 Instalar GlassFish 7.0.25 (una sola vez)
+
+GlassFish **no viene con el proyecto ni está en el repositorio**: se descarga el ZIP
+oficial 7.0.25 y se descomprime en la raíz del proyecto, lo que crea la carpeta
+`glassfish7/` (ignorada por git). El ZIP contiene la carpeta `glassfish7/` en su raíz,
+por lo que basta descomprimirlo ahí.
+
+**Linux (Bash):**
+
+```bash
 curl -fLO https://repo1.maven.org/maven2/org/glassfish/main/distributions/glassfish/7.0.25/glassfish-7.0.25.zip
 unzip glassfish-7.0.25.zip -d .        # crea glassfish7/
 ```
 
-Arrancar / detener / desplegar:
+**Windows (PowerShell):**
+
+```powershell
+curl.exe -fLO https://repo1.maven.org/maven2/org/glassfish/main/distributions/glassfish/7.0.25/glassfish-7.0.25.zip
+Expand-Archive glassfish-7.0.25.zip -DestinationPath .    # crea glassfish7\
+```
+
+El ZIP descargado puede borrarse después de descomprimirlo.
+
+### 4.6 Arrancar GlassFish y desplegar la aplicación
+
+La única diferencia entre sistemas operativos es el separador de ruta del ejecutable
+`asadmin` (`/` en Linux, `\` en Windows):
 
 ```bash
-glassfish7/bin/asadmin start-domain     # http://localhost:8080 · admin 4848
+# Linux (Bash)
+glassfish7/bin/asadmin start-domain    # arranca el dominio: http://localhost:8080 · consola admin 4848
 glassfish7/bin/asadmin deploy target/mercado-nexo.war
-glassfish7/bin/asadmin stop-domain
 ```
 
-**Importante (procedimiento de re-despliegue):** para actualizar la aplicación ya
-desplegada, reinicie el dominio en lugar de usar `deploy --force` — GlassFish registra
-la unidad de persistencia a nivel de servidor y un re-despliegue en caliente puede
-provocar conflictos de classloaders:
-
-```bash
-mvn package -DskipTests
-glassfish7/bin/asadmin stop-domain && glassfish7/bin/asadmin start-domain
-# La aplicación se despliega automáticamente al arrancar
+```powershell
+# Windows (PowerShell)
+.\glassfish7\bin\asadmin start-domain
+.\glassfish7\bin\asadmin deploy target\mercado-nexo.war
 ```
 
-### 4.3 Compilar y probar
+El primer arranque del dominio puede tardar un momento. `deploy` copia el WAR al
+dominio y registra el despliegue con el nombre **mercado-nexo** (el nombre del WAR).
 
-```bash
-mvn package          # compila + empaqueta target/mercado-nexo.war
-mvn test             # ejecuta las 14 pruebas JUnit (requiere PostgreSQL arriba)
-```
-
-### 4.4 Usar la aplicación
+### 4.7 Usar la aplicación
 
 - **Listado:** http://localhost:8080/mercado-nexo/productos
 - Crear → botón “+ Nuevo producto”; Editar → botón “Editar”; Detalle → “Ver”;
@@ -174,6 +238,50 @@ mvn test             # ejecuta las 14 pruebas JUnit (requiere PostgreSQL arriba)
 - **Operaciones masivas (JPQL):** panel en el listado — ajuste de precios por
   categoría (UPDATE masivo) y eliminación de productos sin stock (DELETE masivo).
 - **Categorías:** http://localhost:8080/mercado-nexo/categorias
+
+### 4.8 Detener, reiniciar y re-desplegar (sin perder datos)
+
+**Base de datos.** Los datos viven en el volumen Docker nombrado `mercadonexo_pgdata`,
+que `stop` y `down` nunca borran:
+
+```bash
+docker compose stop db      # detener el contenedor (volumen intacto)
+docker compose start db     # retomar con todos los datos
+# o bien: docker compose down && docker compose up -d   (mismo volumen, datos intactos)
+```
+
+> `docker compose down -v` **borra el volumen y todos los datos** (reset total):
+> usarlo solo cuando se quiera empezar de cero.
+
+**GlassFish** (mismos comandos en ambos SO; solo cambia el separador de ruta):
+
+```bash
+glassfish7/bin/asadmin stop-domain     # Linux ·  Windows: .\glassfish7\bin\asadmin stop-domain
+glassfish7/bin/asadmin start-domain    # volver a arrancar
+```
+
+Si al arrancar de nuevo la aplicación no responde en el navegador, re-despliégala
+según el procedimiento de abajo.
+
+**Re-desplegar tras recompilar.** Al recompilar (`mvn package -DskipTests`) se genera
+un WAR nuevo en `target/`, pero **arrancar o reiniciar el dominio no instala ese WAR
+nuevo por sí solo**: hay que volver a ejecutar `deploy`. Para actualizar la
+aplicación ya desplegada se recomienda quitar el despliegue anterior, reiniciar el
+dominio y desplegar el WAR nuevo — en lugar de usar `deploy --force`, que puede
+provocar conflictos de classloaders con la unidad de persistencia registrada a nivel
+de servidor:
+
+```bash
+# 1) Recompilar:                    mvn package -DskipTests
+# 2) Quitar el despliegue anterior (con el dominio corriendo):
+glassfish7/bin/asadmin undeploy mercado-nexo
+# 3) Reiniciar el dominio:
+glassfish7/bin/asadmin stop-domain && glassfish7/bin/asadmin start-domain
+# 4) Desplegar el WAR nuevo:
+glassfish7/bin/asadmin deploy target/mercado-nexo.war
+```
+
+(En Windows: `.\glassfish7\bin\asadmin ...` y `target\mercado-nexo.war`.)
 
 ## 5. Consultas JPQL implementadas (Tarea 6)
 
